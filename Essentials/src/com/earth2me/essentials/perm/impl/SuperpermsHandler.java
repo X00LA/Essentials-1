@@ -50,6 +50,11 @@ public class SuperpermsHandler implements IPermissionsHandler {
     }
 
     @Override
+    public boolean isPermissionSet(final Player base, final String node) {
+        return base.isPermissionSet(node);
+    }
+
+    @Override
     public String getPrefix(final Player base) {
         return null;
     }
@@ -68,7 +73,7 @@ public class SuperpermsHandler implements IPermissionsHandler {
         String enabledPermsPlugin = null;
         List<String> specialCasePlugins = Arrays.asList("PermissionsEx", "GroupManager",
                 "SimplyPerms", "Privileges", "bPermissions", "zPermissions", "PermissionsBukkit",
-                "DroxPerms", "xPerms");
+                "DroxPerms", "xPerms", "LuckPerms");
         for (Plugin plugin : Bukkit.getPluginManager().getPlugins()) {
             if (specialCasePlugins.contains(plugin.getName())) {
                 enabledPermsPlugin = plugin.getName();

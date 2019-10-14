@@ -13,7 +13,7 @@ public abstract class AbstractVaultHandler extends SuperpermsHandler {
     protected static Permission perms = null;
     protected static Chat chat = null;
 
-    public boolean setupProviders() {
+    private boolean setupProviders() {
         try {
             Class.forName("net.milkbowl.vault.permission.Permission");
             Class.forName("net.milkbowl.vault.chat.Chat");
@@ -48,7 +48,7 @@ public abstract class AbstractVaultHandler extends SuperpermsHandler {
         String playerPrefix = chat.getPlayerPrefix(base);
         if (playerPrefix == null) {
             String playerGroup = perms.getPrimaryGroup(base);
-            return chat.getGroupPrefix((String) null, playerGroup);
+            return chat.getGroupPrefix(base.getWorld().getName(), playerGroup);
         } else {
             return playerPrefix;
         }
@@ -59,13 +59,13 @@ public abstract class AbstractVaultHandler extends SuperpermsHandler {
         String playerSuffix = chat.getPlayerSuffix(base);
         if (playerSuffix == null) {
             String playerGroup = perms.getPrimaryGroup(base);
-            return chat.getGroupSuffix((String) null, playerGroup);
+            return chat.getGroupSuffix(base.getWorld().getName(), playerGroup);
         } else {
             return playerSuffix;
         }
     }
 
-    protected boolean canLoad() {
+    boolean canLoad() {
         if (Bukkit.getPluginManager().getPlugin("Vault") == null) return false;
         try {
             return setupProviders();

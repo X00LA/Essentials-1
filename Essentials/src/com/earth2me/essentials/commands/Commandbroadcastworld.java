@@ -8,12 +8,15 @@ import com.earth2me.essentials.textreader.IText;
 import com.earth2me.essentials.textreader.KeywordReplacer;
 import com.earth2me.essentials.textreader.SimpleTextInput;
 import com.earth2me.essentials.utils.FormatUtil;
+import com.google.common.collect.Lists;
 
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 
 public class Commandbroadcastworld extends EssentialsCommand {
@@ -24,7 +27,25 @@ public class Commandbroadcastworld extends EssentialsCommand {
 
     @Override
     public void run(final Server server, final User user, final String commandLabel, final String[] args) throws Exception {
-        sendBroadcast(user.getWorld().getName(), user.getDisplayName(), getFinalArg(args, 0));
+        World world = user.getWorld();
+        String message = getFinalArg(args, 0);
+
+        if (args.length < 1) {
+            throw new NotEnoughArgumentsException();
+        } else if (args.length > 1 && ess.getSettings().isAllowWorldInBroadcastworld()) {
+            World argWorld = ess.getWorld(args[0]);
+            if (argWorld != null) {
+                world = argWorld;
+                message = getFinalArg(args, 1);
+            }
+        }
+
+        if (world == null) {
+            world = user.getWorld();
+            message = getFinalArg(args, 0);
+        }
+
+        sendBroadcast(world.getName(), user.getDisplayName(), message);
     }
 
     @Override
@@ -39,6 +60,9 @@ public class Commandbroadcastworld extends EssentialsCommand {
         World world = ess.getWorld(worldName);
         if (world == null) {
             throw new Exception(tl("invalidWorld"));
+        }
+        if (message.isEmpty()) {
+            throw new NotEnoughArgumentsException();
         }
         sendToWorld(world, tl("broadcast", FormatUtil.replaceFormat(message).replace("\\n", "\n"), name));
     }
@@ -55,6 +79,32 @@ public class Commandbroadcastworld extends EssentialsCommand {
                     user.sendMessage(messageText);
                 }
             }
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(Server server, User user, String commandLabel, String[] args) {
+        if (args.length == 1 && ess.getSettings().isAllowWorldInBroadcastworld()) {
+            List<String> worlds = Lists.newArrayList();
+            for (World world : server.getWorlds()) {
+                worlds.add(world.getName());
+            }
+            return worlds;
+        } else {
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(Server server, CommandSource sender, String commandLabel, String[] args) {
+        if (args.length == 1) {
+            List<String> worlds = Lists.newArrayList();
+            for (World world : server.getWorlds()) {
+                worlds.add(world.getName());
+            }
+            return worlds;
+        } else {
+            return Collections.emptyList();
         }
     }
 }

@@ -8,6 +8,7 @@ import com.earth2me.essentials.register.payment.Methods;
 import com.earth2me.essentials.utils.DateUtil;
 import com.earth2me.essentials.utils.FormatUtil;
 import com.earth2me.essentials.utils.NumberUtil;
+import com.earth2me.essentials.utils.VersionUtil;
 import net.ess3.api.IEssentials;
 import net.ess3.api.MaxMoneyException;
 import net.ess3.api.events.AfkStatusChangeEvent;
@@ -18,6 +19,7 @@ import net.ess3.nms.refl.ReflUtil;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.inventory.ItemStack;
@@ -26,11 +28,7 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
 import java.math.BigDecimal;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-import java.util.Map;
-import java.util.UUID;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -60,6 +58,8 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
     private String afkMessage;
     private long afkSince;
     private Map<User, BigDecimal> confirmingPayments = new WeakHashMap<>();
+    private String confirmingClearCommand;
+    private long lastNotifiedAboutMailsMs;
 
     public User(final Player base, final IEssentials ess) {
         super(base, ess);
@@ -97,6 +97,11 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
         return result;
     }
 
+    @Override
+    public boolean isPermissionSet(final String node) {
+        return isPermSetCheck(node);
+    }
+
     private boolean isAuthorizedCheck(final String node) {
 
         if (base instanceof OfflinePlayer) {
@@ -105,6 +110,24 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
 
         try {
             return ess.getPermissionsHandler().hasPermission(base, node);
+        } catch (Exception ex) {
+            if (ess.getSettings().isDebug()) {
+                ess.getLogger().log(Level.SEVERE, "Permission System Error: " + ess.getPermissionsHandler().getName() + " returned: " + ex.getMessage(), ex);
+            } else {
+                ess.getLogger().log(Level.SEVERE, "Permission System Error: " + ess.getPermissionsHandler().getName() + " returned: " + ex.getMessage());
+            }
+
+            return false;
+        }
+    }
+
+    private boolean isPermSetCheck(final String node) {
+        if (base instanceof OfflinePlayer) {
+            return false;
+        }
+
+        try {
+            return ess.getPermissionsHandler().isPermissionSet(base, node);
         } catch (Exception ex) {
             if (ess.getSettings().isDebug()) {
                 ess.getLogger().log(Level.SEVERE, "Permission System Error: " + ess.getPermissionsHandler().getName() + " returned: " + ex.getMessage(), ex);
@@ -219,8 +242,19 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
     }
 
     @Override
-    public Boolean canSpawnItem(final int itemId) {
-        return !ess.getSettings().itemSpawnBlacklist().contains(itemId);
+    public Boolean canSpawnItem(final Material material) {
+        if (ess.getSettings().permissionBasedItemSpawn()) {
+            final String name = material.toString().toLowerCase(Locale.ENGLISH).replace("_", "");
+
+            if (isAuthorized("essentials.itemspawn.item-all") || isAuthorized("essentials.itemspawn.item-" + name)) return true;
+
+            if (VersionUtil.getServerBukkitVersion().isLowerThan(VersionUtil.v1_13_0_R01)) {
+                final int id = material.getId();
+                if (isAuthorized("essentials.itemspawn.item-" + id)) return true;
+            }
+        }
+
+        return isAuthorized("essentials.itemspawn.exempt") || !ess.getSettings().itemSpawnBlacklist().contains(material);
     }
 
     @Override
@@ -306,12 +340,12 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
 
         if (ess.getSettings().addPrefixSuffix()) {
             //These two extra toggles are not documented, because they are mostly redundant #EasterEgg
-            if (withPrefix && !ess.getSettings().disablePrefix()) {
+            if (withPrefix || !ess.getSettings().disablePrefix()) {
                 final String ptext = ess.getPermissionsHandler().getPrefix(base).replace('&', '§');
                 prefix.insert(0, ptext);
                 suffix = "§r";
             }
-            if (withSuffix && !ess.getSettings().disableSuffix()) {
+            if (withSuffix || !ess.getSettings().disableSuffix()) {
                 final String stext = ess.getPermissionsHandler().getSuffix(base).replace('&', '§');
                 suffix = stext + "§r";
                 suffix = suffix.replace("§f§f", "§f").replace("§f§r", "§r").replace("§r§r", "§r");
@@ -356,7 +390,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
     }
 
     public String getDisplayName() {
-        return super.getBase().getDisplayName() == null ? super.getBase().getName() : super.getBase().getDisplayName();
+        return super.getBase().getDisplayName() == null || (ess.getSettings().hideDisplayNameInVanish() && isHidden()) ? super.getBase().getName() : super.getBase().getDisplayName();
     }
 
     @Override
@@ -454,7 +488,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
             return;
         }
 
-        this.getBase().setSleepingIgnored(this.isAuthorized("essentials.sleepingignored") ? true : set);
+        this.getBase().setSleepingIgnored(this.isAuthorized("essentials.sleepingignored") || set && ess.getSettings().sleepIgnoresAfkPlayers());
         if (set && !isAfk()) {
             afkPosition = this.getLocation();
             this.afkSince = System.currentTimeMillis();
@@ -511,12 +545,14 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
                 setJailed(false);
                 sendMessage(tl("haveBeenReleased"));
                 setJail(null);
-                try {
-                    getTeleport().back();
-                } catch (Exception ex) {
+                if (ess.getSettings().isTeleportBackWhenFreedFromJail()) {
                     try {
-                        getTeleport().respawn(null, TeleportCause.PLUGIN);
-                    } catch (Exception ex1) {
+                        getTeleport().back();
+                    } catch (Exception ex) {
+                        try {
+                            getTeleport().respawn(null, TeleportCause.PLUGIN);
+                        } catch (Exception ex1) {
+                        }
                     }
                 }
                 return true;
@@ -535,6 +571,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
                 setMuteTimeout(0);
                 sendMessage(tl("canTalkAgain"));
                 setMuted(false);
+                setMuteReason(null);
                 return true;
             }
         }
@@ -542,7 +579,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
     }
 
     public void updateActivity(final boolean broadcast) {
-        if (isAfk() && ess.getSettings().cancelAfkOnInteract()) {
+        if (isAfk()) {
             setAfk(false);
             if (broadcast && !isHidden()) {
                 setDisplayNick();
@@ -553,6 +590,18 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
             }
         }
         lastActivity = System.currentTimeMillis();
+    }
+
+    public void updateActivityOnMove(final boolean broadcast) {
+        if(ess.getSettings().cancelAfkOnMove()) {
+            updateActivity(broadcast);
+        }
+    }
+
+    public void updateActivityOnInteract(final boolean broadcast) {
+        if(ess.getSettings().cancelAfkOnInteract()) {
+            updateActivity(broadcast);
+        }
     }
 
     public void checkActivity() {
@@ -712,7 +761,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
                 }
             }
             setHidden(true);
-            ess.getVanishedPlayers().add(getName());
+            ess.getVanishedPlayersNew().add(getName());
             if (isAuthorized("essentials.vanish.effect")) {
                 this.getBase().addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 1, false));
             }
@@ -721,7 +770,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
                 p.showPlayer(getBase());
             }
             setHidden(false);
-            ess.getVanishedPlayers().remove(getName());
+            ess.getVanishedPlayersNew().remove(getName());
             if (isAuthorized("essentials.vanish.effect")) {
                 this.getBase().removePotionEffect(PotionEffectType.INVISIBILITY);
             }
@@ -844,15 +893,34 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
         return confirmingPayments;
     }
 
+    public String getConfirmingClearCommand() {
+        return confirmingClearCommand;
+    }
+    
+    public void setConfirmingClearCommand(String command) {
+        this.confirmingClearCommand = command;
+    }
+
     /**
      * Returns the {@link ItemStack} in the main hand or off-hand. If the main hand is empty then the offhand item is returned - also nullable.
      */
     public ItemStack getItemInHand() {
-        if (ReflUtil.getNmsVersionObject().isLowerThan(ReflUtil.V1_9_R1)) {
+        if (VersionUtil.getServerBukkitVersion().isLowerThan(VersionUtil.v1_9_R01)) {
             return getBase().getInventory().getItemInHand();
         } else {
             PlayerInventory inventory = getBase().getInventory();
             return inventory.getItemInMainHand() != null ? inventory.getItemInMainHand() : inventory.getItemInOffHand();
+        }
+    }
+    
+    public void notifyOfMail() {
+        List<String> mails = getMails();
+        if (mails != null && !mails.isEmpty()) {
+            int notifyPlayerOfMailCooldown = ess.getSettings().getNotifyPlayerOfMailCooldown() * 1000;
+            if (System.currentTimeMillis() - lastNotifiedAboutMailsMs >= notifyPlayerOfMailCooldown) {
+                sendMessage(tl("youHaveNewMail", mails.size()));
+                lastNotifiedAboutMailsMs = System.currentTimeMillis();
+            }
         }
     }
 }

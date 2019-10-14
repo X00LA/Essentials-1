@@ -19,11 +19,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
-
 public interface IEssentials extends Plugin {
     void addReloadListener(IConf listener);
 
     void reload();
+
+    List<String> onTabCompleteEssentials(CommandSender sender, Command command, String commandLabel, String[] args, ClassLoader classLoader, String commandPath, String permissionPrefix, IEssentialsModule module);
 
     boolean onCommandEssentials(CommandSender sender, Command command, String commandLabel, String[] args, ClassLoader classLoader, String commandPath, String permissionPrefix, IEssentialsModule module);
 
@@ -60,6 +61,8 @@ public interface IEssentials extends Plugin {
 
     Backup getBackup();
 
+    Kits getKits();
+
     Methods getPaymentMethod();
 
     BukkitTask runTaskAsynchronously(Runnable run);
@@ -92,6 +95,7 @@ public interface IEssentials extends Plugin {
 
     EssentialsTimer getTimer();
 
+    @Deprecated
     List<String> getVanishedPlayers();
 
     Collection<Player> getOnlinePlayers();

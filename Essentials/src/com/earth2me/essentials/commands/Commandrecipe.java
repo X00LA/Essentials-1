@@ -2,26 +2,45 @@ package com.earth2me.essentials.commands;
 
 import com.earth2me.essentials.CommandSource;
 import com.earth2me.essentials.User;
+import com.earth2me.essentials.utils.EnumUtil;
 import com.earth2me.essentials.utils.NumberUtil;
+import com.earth2me.essentials.utils.VersionUtil;
 import org.bukkit.Material;
 import org.bukkit.Server;
 import org.bukkit.inventory.*;
 
 import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 import static com.earth2me.essentials.I18n.tl;
 
+import net.ess3.nms.refl.ReflUtil;
+
 
 public class Commandrecipe extends EssentialsCommand {
+
+    private static final Material FIREWORK_ROCKET = EnumUtil.getMaterial("FIREWORK_ROCKET", "FIREWORK");
+    private static final Material FIREWORK_STAR = EnumUtil.getMaterial("FIREWORK_STAR", "FIREWORK_CHARGE");
+    private static final Material GUNPOWDER = EnumUtil.getMaterial("GUNPOWDER", "SULPHUR");
+
     public Commandrecipe() {
         super("recipe");
+    }
+    
+    private void disableCommandForVersion1_12() throws Exception {
+        VersionUtil.BukkitVersion version = VersionUtil.getServerBukkitVersion();
+        if (version.isHigherThanOrEqualTo(VersionUtil.v1_12_0_R01)
+            && !ess.getSettings().isForceEnableRecipe()) {
+            throw new Exception("Please use the recipe book in your inventory.");
+        }
     }
 
     @Override
     public void run(final Server server, final CommandSource sender, final String commandLabel, final String[] args) throws Exception {
+        disableCommandForVersion1_12();
         if (args.length < 1) {
             throw new NotEnoughArgumentsException();
         }
@@ -54,11 +73,11 @@ public class Commandrecipe extends EssentialsCommand {
         } else if (selectedRecipe instanceof ShapedRecipe) {
             shapedRecipe(sender, (ShapedRecipe) selectedRecipe, sender.isPlayer());
         } else if (selectedRecipe instanceof ShapelessRecipe) {
-            if (recipesOfType.size() == 1 && itemType.getType() == Material.FIREWORK) {
+            if (recipesOfType.size() == 1 && (itemType.getType() == FIREWORK_ROCKET)) {
                 ShapelessRecipe shapelessRecipe = new ShapelessRecipe(itemType);
-                shapelessRecipe.addIngredient(Material.SULPHUR);
+                shapelessRecipe.addIngredient(GUNPOWDER);
                 shapelessRecipe.addIngredient(Material.PAPER);
-                shapelessRecipe.addIngredient(Material.FIREWORK_CHARGE);
+                shapelessRecipe.addIngredient(FIREWORK_STAR);
                 shapelessRecipe(sender, shapelessRecipe, sender.isPlayer());
             } else {
                 shapelessRecipe(sender, (ShapelessRecipe) selectedRecipe, sender.isPlayer());
@@ -163,5 +182,14 @@ public class Commandrecipe extends EssentialsCommand {
             return tl("recipeNothing");
         }
         return type.toString().replace("_", " ").toLowerCase(Locale.ENGLISH);
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(final Server server, final CommandSource sender, final String commandLabel, final String[] args) {
+        if (args.length == 1) {
+            return getItems();
+        } else {
+            return Collections.emptyList();
+        }
     }
 }

@@ -1,16 +1,19 @@
 package com.earth2me.essentials.signs;
 
 import com.earth2me.essentials.*;
+import com.earth2me.essentials.utils.MaterialUtil;
 import com.earth2me.essentials.utils.NumberUtil;
 import net.ess3.api.IEssentials;
 import net.ess3.api.MaxMoneyException;
 import net.ess3.api.events.SignBreakEvent;
 import net.ess3.api.events.SignCreateEvent;
 import net.ess3.api.events.SignInteractEvent;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
+import org.bukkit.block.data.type.WallSign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.inventory.ItemStack;
@@ -54,20 +57,32 @@ public class EssentialsSign {
         try {
             final boolean ret = onSignCreate(sign, user, getUsername(user), ess);
             if (ret) {
-                sign.setLine(0, getSuccessName());
+                sign.setLine(0, getSuccessName(ess));
             }
             return ret;
-        } catch (ChargeException ex) {
-            showError(ess, user.getSource(), ex, signName);
-        } catch (SignException ex) {
+        } catch (ChargeException | SignException ex) {
             showError(ess, user.getSource(), ex, signName);
         }
         // Return true, so the player sees the wrong sign.
         return true;
     }
 
+    public String getSuccessName(IEssentials ess) {
+        String successName = getSuccessName();
+        if (successName == null) {
+            ess.getLogger().severe("signFormatSuccess message must use the {0} argument.");
+        }
+        return successName;
+    }
+
     public String getSuccessName() {
-        return tl("signFormatSuccess", this.signName);
+        String successName = tl("signFormatSuccess", this.signName);
+        if (successName.isEmpty() || !successName.contains(this.signName)) {
+            // Set to null to cause an error in place of no functionality. This makes an error obvious as opposed to leaving users baffled by lack of
+            // functionality.
+            successName = null;
+        }
+        return successName;
     }
 
     public String getTemplateName() {
@@ -100,9 +115,6 @@ public class EssentialsSign {
             }
 
             return onSignInteract(sign, user, getUsername(user), ess);
-        } catch (ChargeException ex) {
-            showError(ess, user.getSource(), ex, signName);
-            return false;
         } catch (Exception ex) {
             showError(ess, user.getSource(), ex, signName);
             return false;
@@ -146,9 +158,7 @@ public class EssentialsSign {
         User user = ess.getUser(player);
         try {
             return onBlockPlace(block, user, getUsername(user), ess);
-        } catch (ChargeException ex) {
-            showError(ess, user.getSource(), ex, signName);
-        } catch (SignException ex) {
+        } catch (ChargeException | SignException ex) {
             showError(ess, user.getSource(), ex, signName);
         }
         return false;
@@ -158,9 +168,7 @@ public class EssentialsSign {
         User user = ess.getUser(player);
         try {
             return onBlockInteract(block, user, getUsername(user), ess);
-        } catch (ChargeException ex) {
-            showError(ess, user.getSource(), ex, signName);
-        } catch (SignException ex) {
+        } catch (ChargeException | SignException ex) {
             showError(ess, user.getSource(), ex, signName);
         }
         return false;
@@ -198,16 +206,15 @@ public class EssentialsSign {
 
     protected static boolean checkIfBlockBreaksSigns(final Block block) {
         final Block sign = block.getRelative(BlockFace.UP);
-        if (sign.getType() == Material.SIGN_POST && isValidSign(new BlockSign(sign))) {
+        if (MaterialUtil.isSignPost(sign.getType()) && isValidSign(new BlockSign(sign))) {
             return true;
         }
         final BlockFace[] directions = new BlockFace[]{BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
         for (BlockFace blockFace : directions) {
-            final Block signblock = block.getRelative(blockFace);
-            if (signblock.getType() == Material.WALL_SIGN) {
+            final Block signBlock = block.getRelative(blockFace);
+            if (MaterialUtil.isWallSign(signBlock.getType())) {
                 try {
-                    final org.bukkit.material.Sign signMat = (org.bukkit.material.Sign) signblock.getState().getData();
-                    if (signMat != null && signMat.getFacing() == blockFace && isValidSign(new BlockSign(signblock))) {
+                    if (getWallSignFacing(signBlock) == blockFace && isValidSign(new BlockSign(signBlock))) {
                         return true;
                     }
                 } catch (NullPointerException ex) {
@@ -218,8 +225,24 @@ public class EssentialsSign {
         return false;
     }
 
+    /** @deprecated, use {@link #isValidSign(IEssentials, ISign)} if possible */
+    @Deprecated
     public static boolean isValidSign(final ISign sign) {
         return sign.getLine(0).matches("§1\\[.*\\]");
+    }
+
+    public static boolean isValidSign(final IEssentials ess, final ISign sign) {
+        if (!sign.getLine(0).matches("§1\\[.*\\]"))
+            return false;
+
+        // Validate that the sign is actually an essentials sign
+        String signName = ChatColor.stripColor(sign.getLine(0)).replaceAll("[^a-zA-Z]", "");
+        for (EssentialsSign essSign : ess.getSettings().enabledSigns()) {
+            if (essSign.getName().equalsIgnoreCase(signName))
+                return true;
+        }
+
+        return false;
     }
 
     protected boolean onBlockPlace(final Block block, final User player, final String username, final IEssentials ess) throws SignException, ChargeException {
@@ -273,12 +296,16 @@ public class EssentialsSign {
     }
 
     protected final Trade getTrade(final ISign sign, final int amountIndex, final int itemIndex, final User player, final IEssentials ess) throws SignException {
+        return getTrade(sign, amountIndex, itemIndex, player, false, ess);
+    }
+
+    protected final Trade getTrade(final ISign sign, final int amountIndex, final int itemIndex, final User player, final boolean allowId, final IEssentials ess) throws SignException {
         final String itemType = getSignText(sign, itemIndex);
         if (itemType.equalsIgnoreCase("exp") || itemType.equalsIgnoreCase("xp")) {
             final int amount = getIntegerPositive(getSignText(sign, amountIndex));
             return new Trade(amount, ess);
         }
-        final ItemStack item = getItemStack(itemType, 1, ess);
+        final ItemStack item = getItemStack(itemType, 1, allowId, ess);
         final int amount = Math.min(getIntegerPositive(getSignText(sign, amountIndex)), item.getType().getMaxStackSize() * player.getBase().getInventory().getSize());
         if (item.getType() == Material.AIR || amount < 1) {
             throw new SignException(tl("moreThanZero"));
@@ -315,6 +342,17 @@ public class EssentialsSign {
     }
 
     protected final ItemStack getItemStack(final String itemName, final int quantity, final IEssentials ess) throws SignException {
+        return getItemStack(itemName, quantity, false, ess);
+    }
+
+    protected final ItemStack getItemStack(final String itemName, final int quantity, final boolean allowId, final IEssentials ess) throws SignException {
+        if (allowId && ess.getSettings().allowOldIdSigns()) {
+            final Material newMaterial = ess.getItemDb().getFromLegacy(itemName);
+            if (newMaterial != null) {
+                return new ItemStack(newMaterial, quantity);
+            }
+        }
+
         try {
             final ItemStack item = ess.getItemDb().get(itemName);
             item.setAmount(quantity);
@@ -367,6 +405,10 @@ public class EssentialsSign {
     }
 
     protected final Trade getTrade(final ISign sign, final int index, final int decrement, final IEssentials ess) throws SignException {
+        return getTrade(sign, index, decrement, false, ess);
+    }
+
+    protected final Trade getTrade(final ISign sign, final int index, final int decrement, final boolean allowId, final IEssentials ess) throws SignException {
         final String line = getSignText(sign, index);
         if (line.isEmpty()) {
             return new Trade(signName.toLowerCase(Locale.ENGLISH) + "sign", ess);
@@ -389,7 +431,7 @@ public class EssentialsSign {
                 sign.setLine(index, quantity + " exp");
                 return new Trade(quantity, ess);
             } else {
-                final ItemStack stack = getItemStack(item, quantity, ess);
+                final ItemStack stack = getItemStack(item, quantity, allowId, ess);
                 sign.setLine(index, quantity + " " + item);
                 return new Trade(stack, ess);
             }
@@ -400,6 +442,16 @@ public class EssentialsSign {
 
     private void showError(final IEssentials ess, final CommandSource sender, final Throwable exception, final String signName) {
         ess.showError(sender, exception, "\\ sign: " + signName);
+    }
+
+    private static BlockFace getWallSignFacing(Block block) {
+        try {
+            final WallSign signData = (WallSign) block.getState().getBlockData();
+            return signData.getFacing();
+        } catch (NoClassDefFoundError | NoSuchMethodError e) {
+            final org.bukkit.material.Sign signMat = (org.bukkit.material.Sign) block.getState().getData();
+            return signMat.getFacing();
+        }
     }
 
 

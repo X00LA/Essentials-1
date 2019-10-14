@@ -7,6 +7,7 @@ import com.earth2me.essentials.utils.DateUtil;
 import net.ess3.api.events.MuteStatusChangeEvent;
 import org.bukkit.Server;
 
+import java.util.List;
 import java.util.logging.Level;
 
 import static com.earth2me.essentials.I18n.tl;
@@ -40,7 +41,7 @@ public class Commandmute extends EssentialsCommand {
             }
         }
         
-        final boolean willMute = (args.length > 1) ? true : !user.getMuted();
+        final boolean willMute = (args.length > 1) || !user.getMuted();
         final User controller = sender.isPlayer() ? ess.getUser(sender.getPlayer()) : null;
         final MuteStatusChangeEvent event = new MuteStatusChangeEvent(user, controller, willMute);
         ess.getServer().getPluginManager().callEvent(event);
@@ -49,11 +50,22 @@ public class Commandmute extends EssentialsCommand {
             long muteTimestamp = 0;
 
             if (args.length > 1) {
-                final String time = getFinalArg(args, 1);
-                muteTimestamp = DateUtil.parseDateDiff(time, true);
+                final String time = args[1];
+                String muteReason;
+                try {
+                    muteTimestamp = DateUtil.parseDateDiff(time, true);
+                    muteReason = getFinalArg(args, 2);
+                } catch (Exception e) {
+                    muteReason = getFinalArg(args, 1);
+                }
+
+                user.setMuteReason(muteReason.isEmpty() ? null : muteReason);
                 user.setMuted(true);
             } else {
                 user.setMuted(!user.getMuted());
+                if (!user.getMuted()) {
+                    user.setMuteReason(null);
+                }
             }
             user.setMuteTimeout(muteTimestamp);
             final boolean muted = user.getMuted();
@@ -65,17 +77,35 @@ public class Commandmute extends EssentialsCommand {
 
             if (muted) {
                 if (muteTimestamp > 0) {
-                    sender.sendMessage(tl("mutedPlayerFor", user.getDisplayName(), muteTime));
-                    user.sendMessage(tl("playerMutedFor", muteTime));
+                    if (!user.hasMuteReason()) {
+                        sender.sendMessage(tl("mutedPlayerFor", user.getDisplayName(), muteTime));
+                        user.sendMessage(tl("playerMutedFor", muteTime));
+                    } else {
+                        sender.sendMessage(tl("mutedPlayerForReason", user.getDisplayName(), muteTime, user.getMuteReason()));
+                        user.sendMessage(tl("playerMutedForReason", muteTime, user.getMuteReason()));
+                    }
                 } else {
-                    sender.sendMessage(tl("mutedPlayer", user.getDisplayName()));
-                    user.sendMessage(tl("playerMuted"));
+                    if (!user.hasMuteReason()) {
+                        sender.sendMessage(tl("mutedPlayer", user.getDisplayName()));
+                        user.sendMessage(tl("playerMuted"));
+                    } else {
+                        sender.sendMessage(tl("mutedPlayerReason", user.getDisplayName(), user.getMuteReason()));
+                        user.sendMessage(tl("playerMutedReason", user.getMuteReason()));
+                    }
                 }
                 final String message;
                 if (muteTimestamp > 0) {
-                    message = tl("muteNotifyFor", sender.getSender().getName(), user.getName(), muteTime);
+                    if (!user.hasMuteReason()) {
+                        message = tl("muteNotifyFor", sender.getSender().getName(), user.getName(), muteTime);
+                    } else {
+                        message = tl("muteNotifyForReason", sender.getSender().getName(), user.getName(), muteTime, user.getMuteReason());
+                    }
                 } else {
-                    message = tl("muteNotify", sender.getSender().getName(), user.getName());
+                    if (!user.hasMuteReason()) {
+                        message = tl("muteNotify", sender.getSender().getName(), user.getName());
+                    } else {
+                        message = tl("muteNotifyReason", sender.getSender().getName(), user.getName(), user.getMuteReason());
+                    }
                 }
                 server.getLogger().log(Level.INFO, message);
                 ess.broadcastMessage("essentials.mute.notify", message);
@@ -83,6 +113,15 @@ public class Commandmute extends EssentialsCommand {
                 sender.sendMessage(tl("unmutedPlayer", user.getDisplayName()));
                 user.sendMessage(tl("playerUnmuted"));
             }
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(Server server, CommandSource sender, String commandLabel, String[] args) {
+        if (args.length == 1) {
+            return getPlayers(server, sender);
+        } else {
+            return COMMON_DATE_DIFFS; // Date diff can span multiple words
         }
     }
 }

@@ -5,6 +5,7 @@ import com.earth2me.essentials.User;
 import com.earth2me.essentials.textreader.SimpleTextInput;
 import com.earth2me.essentials.textreader.TextPager;
 import com.earth2me.essentials.utils.NumberUtil;
+import com.google.common.collect.Lists;
 import org.bukkit.Server;
 
 import java.math.BigDecimal;
@@ -101,11 +102,13 @@ public class Commandbalancetop extends EssentialsCommand {
                                     // Don't list NPCs in output
                                     continue;
                                 }
-                                final BigDecimal userMoney = user.getMoney();
-                                user.updateMoneyCache(userMoney);
-                                totalMoney = totalMoney.add(userMoney);
-                                final String name = user.isHidden() ? user.getName() : user.getDisplayName();
-                                balances.put(name, userMoney);
+                                if (!user.isAuthorized("essentials.balancetop.exclude")) {
+                                    final BigDecimal userMoney = user.getMoney();
+                                    user.updateMoneyCache(userMoney);
+                                    totalMoney = totalMoney.add(userMoney);
+                                    final String name = user.isHidden() ? user.getName() : user.getDisplayName();
+                                    balances.put(name, userMoney);
+                                }
                             }
                         }
                     }
@@ -159,6 +162,19 @@ public class Commandbalancetop extends EssentialsCommand {
                 lock.readLock().unlock();
             }
             ess.runTaskAsynchronously(new Calculator(new Viewer(sender, commandLabel, page, false), force));
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(Server server, CommandSource sender, String commandLabel, String[] args) {
+        if (args.length == 1) {
+            List<String> options = Lists.newArrayList("1");
+            if (!sender.isPlayer() || ess.getUser(sender.getPlayer()).isAuthorized("essentials.balancetop.force")) {
+                options.add("force");
+            }
+            return options;
+        } else {
+            return Collections.emptyList();
         }
     }
 }

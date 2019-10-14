@@ -5,6 +5,7 @@ import com.earth2me.essentials.signs.EssentialsSign;
 import com.earth2me.essentials.textreader.IText;
 
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.EventPriority;
 
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 
@@ -54,13 +56,30 @@ public interface ISettings extends IConf {
 
     Set<String> getSocialSpyCommands();
 
+    boolean getSocialSpyListenMutedPlayers();
+
     Set<String> getMuteCommands();
 
-    Map<String, Object> getKit(String name);
-
+    /**
+     * @Deprecated in favor of {@link Kits#getKits()}
+     */
+    @Deprecated
     ConfigurationSection getKits();
 
+    /**
+     * @Deprecated in favor of {@link Kits#getKit(String)}
+     */
+    @Deprecated
+    Map<String, Object> getKit(String kit);
+
+    /**
+     * @Deprecated in favor of {@link Kits#addKit(String, List, long)}}
+     */
+    @Deprecated
     void addKit(String name, List<String> lines, long delay);
+
+    @Deprecated
+    ConfigurationSection getKitSection();
 
     boolean isSkippingUsedOneTimeKitsFromKitList();
 
@@ -78,7 +97,7 @@ public interface ISettings extends IConf {
 
     int getProtectCreeperMaxHeight();
 
-    List<Integer> getProtectList(final String configName);
+    List<Material> getProtectList(final String configName);
 
     boolean getProtectPreventSpawn(final String creatureName);
 
@@ -116,9 +135,12 @@ public interface ISettings extends IConf {
 
     boolean isEcoDisabled();
 
+    @Deprecated
     boolean isTradeInStacks(int id);
 
-    List<Integer> itemSpawnBlacklist();
+    boolean isTradeInStacks(Material type);
+
+    List<Material> itemSpawnBlacklist();
 
     List<EssentialsSign> enabledSigns();
 
@@ -164,6 +186,8 @@ public interface ISettings extends IConf {
 
     boolean cancelAfkOnInteract();
 
+    boolean sleepIgnoresAfkPlayers();
+
     boolean isAfkListName();
 
     String getAfkListName();
@@ -189,6 +213,8 @@ public interface ISettings extends IConf {
     boolean getDisableItemPickupWhileAfk();
 
     EventPriority getRespawnPriority();
+
+    EventPriority getSpawnJoinPriority();
 
     long getTpaAcceptCancellation();
 
@@ -220,6 +246,8 @@ public interface ISettings extends IConf {
 
     boolean ignoreColorsInMaxLength();
 
+    boolean hideDisplayNameInVanish();
+
     int getMaxUserCacheCount();
 
     boolean allowSilentJoinQuit();
@@ -239,7 +267,7 @@ public interface ISettings extends IConf {
     boolean isLastMessageReplyRecipient();
 
     BigDecimal getMinimumPayAmount();
-    
+
     long getLastMessageReplyRecipientTimeout();
 
     boolean isMilkBucketEasterEggEnabled();
@@ -251,13 +279,13 @@ public interface ISettings extends IConf {
     boolean isSpawnOnJoin();
 
     List<String> getSpawnOnJoinGroups();
-    
+
     boolean isUserInSpawnOnJoinGroup(IUser user);
 
     boolean isTeleportToCenterLocation();
 
     boolean isCommandCooldownsEnabled();
-    
+
     long getCommandCooldownMs(String label);
 
     Entry<Pattern, Long> getCommandCooldownEntry(String label);
@@ -269,12 +297,44 @@ public interface ISettings extends IConf {
     NumberFormat getCurrencyFormat();
 
     List<EssentialsSign> getUnprotectedSignNames();
-    
+
     boolean isPastebinCreateKit();
-    
+
     boolean isAllowBulkBuySell();
-    
+
     boolean isAddingPrefixInPlayerlist();
 
     boolean isAddingSuffixInPlayerlist();
+
+    int getNotifyPlayerOfMailCooldown();
+
+    int getMotdDelay();
+
+    boolean isDirectHatAllowed();
+
+    List<String> getDefaultEnabledConfirmCommands();
+
+    boolean isConfirmCommandEnabledByDefault(String commandName);
+
+    boolean isTeleportBackWhenFreedFromJail();
+
+    boolean isCompassTowardsHomePerm();
+
+    boolean isAllowWorldInBroadcastworld();
+
+    String getItemDbType();
+
+    boolean isForceEnableRecipe();
+
+    boolean allowOldIdSigns();
+
+    boolean isWaterSafe();
+  
+    boolean isSafeUsermap();
+
+    boolean logCommandBlockCommands();
+
+    Set<Predicate<String>> getNickBlacklist();
+
+    double getMaxProjectileSpeed();
 }

@@ -2,9 +2,13 @@ package com.earth2me.essentials.commands;
 
 import com.earth2me.essentials.User;
 import com.earth2me.essentials.utils.LocationUtil;
+import com.google.common.collect.Lists;
 import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.TreeType;
+
+import java.util.Collections;
+import java.util.List;
 
 import static com.earth2me.essentials.I18n.tl;
 
@@ -23,6 +27,8 @@ public class Commandbigtree extends EssentialsCommand {
             tree = TreeType.BIG_TREE;
         } else if (args.length > 0 && args[0].equalsIgnoreCase("jungle")) {
             tree = TreeType.JUNGLE;
+        } else if (args.length > 0 && args[0].equalsIgnoreCase("darkoak")) {
+            tree = TreeType.DARK_OAK;
         } else {
             throw new NotEnoughArgumentsException();
         }
@@ -34,6 +40,15 @@ public class Commandbigtree extends EssentialsCommand {
             user.sendMessage(tl("bigTreeSuccess"));
         } else {
             throw new Exception(tl("bigTreeFailure"));
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(Server server, User user, String commandLabel, String[] args) {
+        if (args.length == 1) {
+            return Lists.newArrayList("redwood", "tree", "jungle", "darkoak");
+        } else {
+            return Collections.emptyList();
         }
     }
 }

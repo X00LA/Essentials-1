@@ -2,10 +2,14 @@ package com.earth2me.essentials.commands;
 
 import com.earth2me.essentials.User;
 import com.earth2me.essentials.craftbukkit.InventoryWorkaround;
+import com.google.common.collect.Lists;
 import org.bukkit.Material;
 import org.bukkit.Server;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+
+import java.util.Collections;
+import java.util.List;
 
 import static com.earth2me.essentials.I18n.tl;
 
@@ -29,8 +33,12 @@ public class Commandhat extends EssentialsCommand {
                 user.sendMessage(tl("hatRemoved"));
             }
         } else {
-            if (user.getBase().getItemInHand().getType() != Material.AIR) {
-                final ItemStack hand = user.getBase().getItemInHand();
+            final ItemStack hand = user.getItemInHand();
+            if (hand != null && hand.getType() != Material.AIR) {
+                if (user.isAuthorized("essentials.hat.prevent-type." + hand.getType().name().toLowerCase())) {
+                    user.sendMessage(tl("hatFail"));
+                    return;
+                }
                 if (hand.getType().getMaxDurability() == 0) {
                     final PlayerInventory inv = user.getBase().getInventory();
                     final ItemStack head = inv.getHelmet();
@@ -43,6 +51,15 @@ public class Commandhat extends EssentialsCommand {
             } else {
                 user.sendMessage(tl("hatFail"));
             }
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(final Server server, final User user, final String commandLabel, final String[] args) {
+        if (args.length == 1) {
+            return Lists.newArrayList("remove", "wear"); // "wear" isn't real
+        } else {
+            return Collections.emptyList();
         }
     }
 }

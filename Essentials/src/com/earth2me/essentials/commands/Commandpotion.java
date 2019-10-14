@@ -1,5 +1,8 @@
 package com.earth2me.essentials.commands;
 
+import org.bukkit.DyeColor;
+
+import com.google.common.collect.Lists;
 import com.earth2me.essentials.MetaItemStack;
 import com.earth2me.essentials.Potions;
 import com.earth2me.essentials.User;
@@ -8,15 +11,20 @@ import org.bukkit.Material;
 import org.bukkit.Server;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
 import static com.earth2me.essentials.I18n.tl;
+
+import net.ess3.nms.refl.ReflUtil;
 
 
 public class Commandpotion extends EssentialsCommand {
@@ -38,8 +46,12 @@ public class Commandpotion extends EssentialsCommand {
             }
             throw new NotEnoughArgumentsException(tl("potions", StringUtil.joinList(potionslist.toArray())));
         }
-
-        if (stack.getType() == Material.POTION) {
+        
+        boolean holdingPotion = stack.getType() == Material.POTION;
+        if (!holdingPotion && ReflUtil.getNmsVersionObject().isHigherThanOrEqualTo(ReflUtil.V1_9_R1)) {
+            holdingPotion = stack.getType() == Material.SPLASH_POTION || stack.getType() == Material.LINGERING_POTION;
+        }
+        if (holdingPotion) {
             PotionMeta pmeta = (PotionMeta) stack.getItemMeta();
             if (args.length > 0) {
                 if (args[0].equalsIgnoreCase("clear")) {
@@ -68,6 +80,37 @@ public class Commandpotion extends EssentialsCommand {
 
         } else {
             throw new Exception(tl("holdPotion"));
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(Server server, User user, String commandLabel, String[] args) {
+        // Note: this enforces an order of effect power duration splash, which the actual command doesn't have.  But that's fine. 
+        if (args.length == 1) {
+            List<String> options = Lists.newArrayList();
+            options.add("clear");
+            if (user.isAuthorized("essentials.potion.apply")) {
+                options.add("apply");
+            }
+            for (Map.Entry<String, PotionEffectType> entry : Potions.entrySet()) {
+                final String potionName = entry.getValue().getName().toLowerCase(Locale.ENGLISH);
+                if (user.isAuthorized("essentials.potion." + potionName)) {
+                    options.add("effect:" + entry.getKey());
+                }
+            }
+            return options;
+        } else if (args.length == 2 && args[0].startsWith("effect:")) {
+            return Lists.newArrayList("power:1", "power:2", "power:3", "power:4");
+        } else if (args.length == 3 && args[0].startsWith("effect:")) {
+            List<String> options = Lists.newArrayList();
+            for (String duration : COMMON_DURATIONS) {
+                options.add("duration:" + duration);
+            }
+            return options;
+        } else if (args.length == 4 && args[0].startsWith("effect:")) {
+            return Lists.newArrayList("splash:true", "splash:false");
+        } else {
+            return Collections.emptyList();
         }
     }
 }

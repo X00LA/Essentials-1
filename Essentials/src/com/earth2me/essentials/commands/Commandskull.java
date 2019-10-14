@@ -2,14 +2,23 @@ package com.earth2me.essentials.commands;
 
 import com.earth2me.essentials.User;
 import com.earth2me.essentials.craftbukkit.InventoryWorkaround;
+import com.earth2me.essentials.utils.EnumUtil;
+import com.earth2me.essentials.utils.MaterialUtil;
+import com.google.common.collect.Lists;
 import org.bukkit.Material;
 import org.bukkit.Server;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
+import java.util.Collections;
+import java.util.List;
+
 import static com.earth2me.essentials.I18n.tl;
 
 public class Commandskull extends EssentialsCommand {
+
+    private static final Material SKULL_ITEM = EnumUtil.getMaterial("PLAYER_HEAD", "SKULL_ITEM");
+
     public Commandskull() {
         super("skull");
     }
@@ -27,14 +36,14 @@ public class Commandskull extends EssentialsCommand {
             owner = user.getName();
         }
 
-        ItemStack itemSkull = user.getBase().getItemInHand();
+        ItemStack itemSkull = user.getItemInHand();
         SkullMeta metaSkull = null;
         boolean spawn = false;
 
-        if (itemSkull != null && itemSkull.getType() == Material.SKULL_ITEM && itemSkull.getDurability() == 3) {
+        if (itemSkull != null && MaterialUtil.isPlayerHead(itemSkull.getType(), itemSkull.getDurability())) {
             metaSkull = (SkullMeta) itemSkull.getItemMeta();
         } else if (user.isAuthorized("essentials.skull.spawn")) {
-            itemSkull = new ItemStack(Material.SKULL_ITEM, 1, (byte) 3);
+            itemSkull = new ItemStack(SKULL_ITEM, 1, (byte) 3);
             metaSkull = (SkullMeta) itemSkull.getItemMeta();
             spawn = true;
         } else {
@@ -55,6 +64,19 @@ public class Commandskull extends EssentialsCommand {
             user.sendMessage(tl("givenSkull", owner));
         } else {
             user.sendMessage(tl("skullChanged", owner));
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(Server server, User user, String commandLabel, String[] args) {
+        if (args.length == 1) {
+            if (user.isAuthorized("essentials.skull.others")) {
+                return getPlayers(server, user);
+            } else {
+                return Lists.newArrayList(user.getName());
+            }
+        } else {
+            return Collections.emptyList();
         }
     }
 

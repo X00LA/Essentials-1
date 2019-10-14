@@ -3,10 +3,13 @@ package com.earth2me.essentials.commands;
 import com.earth2me.essentials.MetaItemStack;
 import com.earth2me.essentials.User;
 import com.earth2me.essentials.craftbukkit.InventoryWorkaround;
+import com.google.common.collect.Lists;
 import org.bukkit.Material;
 import org.bukkit.Server;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 import static com.earth2me.essentials.I18n.tl;
@@ -22,12 +25,14 @@ public class Commanditem extends EssentialsCommand {
         if (args.length < 1) {
             throw new NotEnoughArgumentsException();
         }
+
         ItemStack stack = ess.getItemDb().get(args[0]);
 
         final String itemname = stack.getType().toString().toLowerCase(Locale.ENGLISH).replace("_", "");
-        if (ess.getSettings().permissionBasedItemSpawn() ? (!user.isAuthorized("essentials.itemspawn.item-all") && !user.isAuthorized("essentials.itemspawn.item-" + itemname) && !user.isAuthorized("essentials.itemspawn.item-" + stack.getTypeId())) : (!user.isAuthorized("essentials.itemspawn.exempt") && !user.canSpawnItem(stack.getTypeId()))) {
+        if (!user.canSpawnItem(stack.getType())) {
             throw new Exception(tl("cantSpawnItem", itemname));
         }
+
         try {
             if (args.length > 1 && Integer.parseInt(args[1]) > 0) {
                 stack.setAmount(Integer.parseInt(args[1]));
@@ -66,5 +71,18 @@ public class Commanditem extends EssentialsCommand {
             InventoryWorkaround.addItems(user.getBase().getInventory(), stack);
         }
         user.getBase().updateInventory();
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(final Server server, final User user, final String commandLabel, final String[] args) {
+        if (args.length == 1) {
+            return getItems();
+        } else if (args.length == 2) {
+            return Lists.newArrayList("1", "64");  // TODO: get actual max size
+        } else if (args.length == 3) {
+            return Lists.newArrayList("0");
+        } else {
+            return Collections.emptyList();
+        }
     }
 }

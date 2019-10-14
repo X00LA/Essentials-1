@@ -22,6 +22,9 @@ public class ReflUtil {
     public static final NMSVersion V1_9_R1 = NMSVersion.fromString("v1_9_R1");
     public static final NMSVersion V1_10_R1 = NMSVersion.fromString("v1_10_R1");
     public static final NMSVersion V1_11_R1 = NMSVersion.fromString("v1_11_R1");
+    public static final NMSVersion V1_12_R1 = NMSVersion.fromString("v1_12_R1");
+    public static final NMSVersion V1_13_R1 = NMSVersion.fromString("v1_13_R1");
+    public static final NMSVersion V1_13_R2 = NMSVersion.fromString("v1_13_R2");
     private static NMSVersion nmsVersionObject;
     private static String nmsVersion;
 
@@ -151,7 +154,7 @@ public class ReflUtil {
         private final String name;
         private final Class<?>[] params;
 
-        public MethodParams(final String name, final Class<?>[] params) {
+        MethodParams(final String name, final Class<?>[] params) {
             this.name = name;
             this.params = params;
         }
@@ -199,7 +202,7 @@ public class ReflUtil {
     private static class ConstructorParams {
         private final Class<?>[] params;
 
-        public ConstructorParams(Class<?>[] params) {
+        ConstructorParams(Class<?>[] params) {
             this.params = params;
         }
 
@@ -233,7 +236,13 @@ public class ReflUtil {
         public static NMSVersion fromString(String string) {
             Preconditions.checkNotNull(string, "string cannot be null.");
             Matcher matcher = VERSION_PATTERN.matcher(string);
-            Preconditions.checkArgument(matcher.matches(), string + " is not in valid version format. e.g. v1_10_R1");
+            if (!matcher.matches()) {
+                if (!Bukkit.getName().equals("Essentials Fake Server")) {
+                    throw new IllegalArgumentException(string + " is not in valid version format. e.g. v1_10_R1");
+                }
+                matcher = VERSION_PATTERN.matcher(V1_12_R1.toString());
+                Preconditions.checkArgument(matcher.matches(), string + " is not in valid version format. e.g. v1_10_R1");
+            }
             return new NMSVersion(Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)), Integer.parseInt(matcher.group(3)));
         }
 
@@ -306,14 +315,8 @@ public class ReflUtil {
                     return -1;
                 } else if (minor > o.minor) {
                     return 1;
-                } else { // equal minor
-                    if (release < o.release) {
-                        return -1;
-                    } else if (release > o.release) {
-                        return 1;
-                    } else {
-                        return 0; // o is the same version as this.
-                    }
+                } else {
+                    return Integer.compare(release, o.release);
                 }
             }
         }

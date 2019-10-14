@@ -7,8 +7,10 @@ import com.earth2me.essentials.textreader.SimpleTextInput;
 import com.earth2me.essentials.textreader.TextPager;
 import com.earth2me.essentials.utils.FormatUtil;
 import com.earth2me.essentials.utils.StringUtil;
+import com.google.common.collect.Lists;
 import org.bukkit.Server;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,7 +48,7 @@ public class Commandmail extends EssentialsCommand {
             }
 
             if (user.isMuted()) {
-                throw new Exception(tl("voiceSilenced"));
+                throw new Exception(user.hasMuteReason() ? tl("voiceSilencedReason", user.getMuteReason()) : tl("voiceSilenced"));
             }
 
             User u = getPlayer(server, args[1], true, true);
@@ -54,7 +56,7 @@ public class Commandmail extends EssentialsCommand {
                 throw new Exception(tl("playerNeverOnServer", args[1]));
             }
 
-            final String mail = tl("mailFormat", user.getName(), StringUtil.sanitizeString(FormatUtil.stripFormat(getFinalArg(args, 2))));
+            String mail = tl("mailFormat", user.getName(), FormatUtil.formatMessage(user, "essentials.mail", StringUtil.sanitizeString(FormatUtil.stripFormat(getFinalArg(args, 2)))));
             if (mail.length() > 1000) {
                 throw new Exception(tl("mailTooLong"));
             }
@@ -79,11 +81,17 @@ public class Commandmail extends EssentialsCommand {
             if (!user.isAuthorized("essentials.mail.sendall")) {
                 throw new Exception(tl("noPerm", "essentials.mail.sendall"));
             }
-            ess.runTaskAsynchronously(new SendAll(tl("mailFormat", user.getName(), FormatUtil.stripFormat(getFinalArg(args, 1)))));
+            ess.runTaskAsynchronously(new SendAll(tl("mailFormat", user.getName(),
+                    FormatUtil.formatMessage(user, "essentials.mail", StringUtil.sanitizeString(FormatUtil.stripFormat(getFinalArg(args, 1)))))));
             user.sendMessage(tl("mailSent"));
             return;
         }
         if (args.length >= 1 && "clear".equalsIgnoreCase(args[0])) {
+            if (user.getMails() == null || user.getMails().isEmpty()) {
+                user.sendMessage(tl("noMail"));
+                throw new NoChargeException();
+            }
+
             user.setMails(null);
             user.sendMessage(tl("mailCleared"));
             return;
@@ -102,11 +110,11 @@ public class Commandmail extends EssentialsCommand {
             if (u == null) {
                 throw new Exception(tl("playerNeverOnServer", args[1]));
             }
-            u.addMail(tl("mailFormat", "Server", getFinalArg(args, 2)));
+            u.addMail(tl("mailFormat", "Server", FormatUtil.replaceFormat(getFinalArg(args, 2))));
             sender.sendMessage(tl("mailSent"));
             return;
         } else if (args.length >= 2 && "sendall".equalsIgnoreCase(args[0])) {
-            ess.runTaskAsynchronously(new SendAll(tl("mailFormat", "Server", getFinalArg(args, 1))));
+            ess.runTaskAsynchronously(new SendAll(tl("mailFormat", "Server", FormatUtil.replaceFormat(getFinalArg(args, 1)))));
             sender.sendMessage(tl("mailSent"));
             return;
         } else if (args.length >= 2) {
@@ -115,7 +123,7 @@ public class Commandmail extends EssentialsCommand {
             if (u == null) {
                 throw new Exception(tl("playerNeverOnServer", args[0]));
             }
-            u.addMail(tl("mailFormat", "Server", getFinalArg(args, 1)));
+            u.addMail(tl("mailFormat", "Server", FormatUtil.replaceFormat(getFinalArg(args, 1))));
             sender.sendMessage(tl("mailSent"));
             return;
         }
@@ -138,6 +146,51 @@ public class Commandmail extends EssentialsCommand {
                     user.addMail(message);
                 }
             }
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(final Server server, final User user, final String commandLabel, final String[] args) {
+        if (args.length == 1) {
+            List<String> options = Lists.newArrayList("read", "clear");
+            if (user.isAuthorized("essentials.mail.send")) {
+                options.add("send");
+            }
+            if (user.isAuthorized("essentials.mail.sendall")) {
+                options.add("sendall");
+            }
+            return options;
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("send") && user.isAuthorized("essentials.mail.send")) {
+            return getPlayers(server, user);
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("read")) {
+            final List<String> mail = user.getMails();
+            int pages = mail.size() / 9 + (mail.size() % 9 > 0 ? 1 : 0);
+            if (pages == 0) {
+                return Lists.newArrayList("0");
+            } else {
+                List<String> options = Lists.newArrayList("1");
+                if (pages > 1) {
+                    options.add(String.valueOf(pages));
+                }
+                return options;
+            }
+        } else if ((args.length > 2 && args[0].equalsIgnoreCase("send") && user.isAuthorized("essentials.mail.send")) || (args.length > 1 && args[0].equalsIgnoreCase("sendall") && user.isAuthorized("essentials.mail.sendall"))) {
+            return null; // Use vanilla handler
+        } else {
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(final Server server, final CommandSource sender, final String commandLabel, final String[] args) {
+        if (args.length == 1) {
+            return Lists.newArrayList("send", "sendall");
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("send")) {
+            return getPlayers(server, sender);
+        } else if ((args.length > 2 && args[0].equalsIgnoreCase("send")) || (args.length > 1 && args[0].equalsIgnoreCase("sendall"))) {
+            return null; // Use vanilla handler
+        } else {
+            return Collections.emptyList();
         }
     }
 }

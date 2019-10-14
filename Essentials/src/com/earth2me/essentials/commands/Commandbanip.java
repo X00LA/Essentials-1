@@ -6,13 +6,15 @@ import com.earth2me.essentials.User;
 import com.earth2me.essentials.utils.FormatUtil;
 import org.bukkit.BanList;
 import org.bukkit.Server;
+import org.bukkit.entity.Player;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.logging.Level;
 
 import static com.earth2me.essentials.I18n.tl;
 
 
-//TODO: Add kick to online players matching ip ban.
 public class Commandbanip extends EssentialsCommand {
     public Commandbanip() {
         super("banip");
@@ -49,9 +51,27 @@ public class Commandbanip extends EssentialsCommand {
             banReason = tl("defaultBanReason");
         }
 
+        String banDisplay = tl("banFormat", banReason, senderName);
+
         ess.getServer().getBanList(BanList.Type.IP).addBan(ipAddress, banReason, null, senderName);
         server.getLogger().log(Level.INFO, tl("playerBanIpAddress", senderName, ipAddress, banReason));
 
+        for (Player player : ess.getServer().getOnlinePlayers()) {
+            if (player.getAddress().getAddress().getHostAddress().equalsIgnoreCase(ipAddress)) {
+                player.kickPlayer(banDisplay);
+            }
+        }
+
         ess.broadcastMessage("essentials.banip.notify", tl("playerBanIpAddress", senderName, ipAddress, banReason));
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(Server server, CommandSource sender, String commandLabel, String[] args) {
+        if (args.length == 1) {
+            // TODO: Also list IP addresses?
+            return getPlayers(server, sender);
+        } else {
+            return Collections.emptyList();
+        }
     }
 }

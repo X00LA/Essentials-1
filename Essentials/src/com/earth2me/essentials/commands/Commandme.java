@@ -10,6 +10,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static com.earth2me.essentials.I18n.tl;
@@ -23,7 +24,7 @@ public class Commandme extends EssentialsCommand {
     @Override
     public void run(Server server, User user, String commandLabel, String[] args) throws Exception {
         if (user.isMuted()) {
-            throw new Exception(tl("voiceSilenced"));
+            throw new Exception(user.hasMuteReason() ? tl("voiceSilencedReason", user.getMuteReason()) : tl("voiceSilenced"));
         }
 
         if (args.length < 1) {
@@ -51,6 +52,8 @@ public class Commandme extends EssentialsCommand {
                 boolean abort = false;
                 final Location playerLoc = onlineUser.getLocation();
                 if (playerLoc.getWorld() != world) {
+                    abort = true;
+                } else if (onlineUser.isIgnoredPlayer(user)) {
                     abort = true;
                 } else {
                     final double delta = playerLoc.distanceSquared(loc);
@@ -89,5 +92,10 @@ public class Commandme extends EssentialsCommand {
         message = FormatUtil.replaceFormat(message);
 
         ess.getServer().broadcastMessage(tl("action", "@", message));
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(Server server, CommandSource sender, String commandLabel, String[] args) {
+        return null;  // It's a chat message, use the default chat handler
     }
 }

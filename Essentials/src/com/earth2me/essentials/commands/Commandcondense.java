@@ -106,6 +106,7 @@ public class Commandcondense extends EssentialsCommand {
         }
 
         final Iterator<Recipe> intr = ess.getServer().recipeIterator();
+        List<SimpleRecipe> bestRecipes = new ArrayList<>();
         while (intr.hasNext()) {
             final Recipe recipe = intr.next();
             final Collection<ItemStack> recipeItems = getStackOnRecipeMatch(recipe, stack);
@@ -114,11 +115,17 @@ public class Commandcondense extends EssentialsCommand {
                 final ItemStack input = stack.clone();
                 input.setAmount(recipeItems.size());
                 final SimpleRecipe newRecipe = new SimpleRecipe(recipe.getResult(), input);
-                condenseList.put(stack, newRecipe);
-                return newRecipe;
+                bestRecipes.add(newRecipe);
             }
         }
-
+        if (!bestRecipes.isEmpty()) {
+            if (bestRecipes.size() > 1) {
+                Collections.sort(bestRecipes, SimpleRecipeComparator.INSTANCE);
+            }
+            SimpleRecipe recipe = bestRecipes.get(0);
+            condenseList.put(stack, recipe);
+            return recipe;
+        }
         condenseList.put(stack, null);
         return null;
     }
@@ -128,6 +135,10 @@ public class Commandcondense extends EssentialsCommand {
 
         if (recipe instanceof ShapedRecipe) {
             ShapedRecipe sRecipe = (ShapedRecipe) recipe;
+            if (sRecipe.getShape().length != sRecipe.getShape()[0].length()) {
+                // Only accept square recipes
+                return null;
+            }
             inputList = sRecipe.getIngredientMap().values();
         } else if (recipe instanceof ShapelessRecipe) {
             ShapelessRecipe slRecipe = (ShapelessRecipe) recipe;
@@ -176,6 +187,24 @@ public class Commandcondense extends EssentialsCommand {
 
         public ItemStack getInput() {
             return input.clone();
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(Server server, User user, String commandLabel, String[] args) {
+        if (args.length == 1) {
+            return getMatchingItems(args[0]);
+        } else {
+            return Collections.emptyList();
+        }
+    }
+
+    private static class SimpleRecipeComparator implements Comparator<SimpleRecipe> {
+
+        private static final SimpleRecipeComparator INSTANCE = new SimpleRecipeComparator();
+        @Override
+        public int compare(SimpleRecipe o1, SimpleRecipe o2) {
+            return Integer.compare(o2.getInput().getAmount(), o1.getInput().getAmount());
         }
     }
 }

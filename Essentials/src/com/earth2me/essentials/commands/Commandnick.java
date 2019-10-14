@@ -8,6 +8,8 @@ import org.bukkit.ChatColor;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 import static com.earth2me.essentials.I18n.tl;
@@ -53,16 +55,16 @@ public class Commandnick extends EssentialsLoopCommand {
     @Override
     protected void updatePlayer(final Server server, final CommandSource sender, final User target, final String[] args) throws NotEnoughArgumentsException {
         final String nick = args[0];
-        if (target.getName().equalsIgnoreCase(nick)) {
+        if ("off".equalsIgnoreCase(nick)) {
+            setNickname(server, sender, target, null);
+            target.sendMessage(tl("nickNoMore"));
+        } else if (target.getName().equalsIgnoreCase(nick)) {
             String oldName = target.getDisplayName();
             setNickname(server, sender, target, nick);
             if (!target.getDisplayName().equalsIgnoreCase(oldName)) {
                 target.sendMessage(tl("nickNoMore"));
             }
             target.sendMessage(tl("nickSet", target.getDisplayName()));
-        } else if ("off".equalsIgnoreCase(nick)) {
-            setNickname(server, sender, target, null);
-            target.sendMessage(tl("nickNoMore"));
         } else if (nickInUse(server, target, nick)) {
             throw new NotEnoughArgumentsException(tl("nickInUse"));
         } else {
@@ -73,7 +75,7 @@ public class Commandnick extends EssentialsLoopCommand {
 
     private String formatNickname(final User user, final String nick) throws Exception {
         String newNick = user == null ? FormatUtil.replaceFormat(nick) : FormatUtil.formatString(user, "essentials.nick", nick);
-        if (!newNick.matches("^[a-zA-Z_0-9\u00a7]+$")) {
+        if (!newNick.matches("^[a-zA-Z_0-9\u00a7]+$") && user != null && !user.isAuthorized("essentials.nick.allowunsafe")) {
             throw new Exception(tl("nickNamesAlpha"));
         } else if (getNickLength(newNick) > ess.getSettings().getMaxNickLength()) {
             throw new Exception(tl("nickTooLong"));
@@ -81,8 +83,15 @@ public class Commandnick extends EssentialsLoopCommand {
             throw new Exception(tl("nickNamesAlpha"));
         } else if (user != null && (user.isAuthorized("essentials.nick.changecolors") && !user.isAuthorized("essentials.nick.changecolors.bypass")) && !FormatUtil.stripFormat(newNick).equals(user.getName())) {
             throw new Exception(tl("nickNamesOnlyColorChanges"));
+        } else if (user != null && !user.isAuthorized("essentials.nick.blacklist.bypass") && isNickBanned(newNick)) {
+            throw new Exception(tl("nickNameBlacklist", nick));
         }
         return newNick;
+    }
+
+    private boolean isNickBanned(String newNick) {
+        return ess.getSettings().getNickBlacklist().stream()
+            .anyMatch(entry -> entry.test(newNick));
     }
 
     private int getNickLength(final String nick) {
@@ -110,6 +119,24 @@ public class Commandnick extends EssentialsLoopCommand {
         if (!nickEvent.isCancelled()) {
             target.setNickname(nickname);
             target.setDisplayNick();
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(final Server server, final User user, final String commandLabel, final String[] args) {
+        if (args.length == 1 && user.isAuthorized("essentials.nick.others")) {
+            return getPlayers(server, user);
+        } else {
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
+    protected List<String> getTabCompleteOptions(final Server server, final CommandSource sender, final String commandLabel, final String[] args) {
+        if (args.length == 1) {
+            return getPlayers(server, sender);
+        } else {
+            return Collections.emptyList();
         }
     }
 }

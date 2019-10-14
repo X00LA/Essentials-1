@@ -1,12 +1,20 @@
 package com.earth2me.essentials;
 
+import net.ess3.nms.refl.ReflUtil;
+
 import org.bukkit.*;
+import org.bukkit.advancement.Advancement;
+import org.bukkit.advancement.AdvancementProgress;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.PistonMoveReaction;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.conversations.Conversation;
 import org.bukkit.conversations.ConversationAbandonedEvent;
 import org.bukkit.entity.*;
+import org.bukkit.entity.memory.MemoryKey;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.inventory.*;
@@ -16,12 +24,17 @@ import org.bukkit.metadata.MetadataValue;
 import org.bukkit.permissions.Permission;
 import org.bukkit.permissions.PermissionAttachment;
 import org.bukkit.permissions.PermissionAttachmentInfo;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.util.BoundingBox;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.*;
 
@@ -98,6 +111,15 @@ public class OfflinePlayer implements Player {
     }
 
     @Override
+    public double getAbsorptionAmount() {
+        return 0;
+    }
+
+    @Override
+    public void setAbsorptionAmount(double v) {
+    }
+
+    @Override
     public boolean isInsideVehicle() {
         return false;
     }
@@ -122,20 +144,38 @@ public class OfflinePlayer implements Player {
         return world;
     }
 
+    @Override
+    public void setRotation(float yaw, float pitch) {
+        location.setYaw(yaw);
+        location.setPitch(pitch);
+    }
+
     public void setLocation(Location loc) {
         location = loc;
         world = loc.getWorld();
     }
 
     public void teleportTo(Location lctn) {
+        location = lctn;
+        world = location.getWorld();
     }
 
     public void teleportTo(Entity entity) {
+        teleportTo(entity.getLocation());
     }
 
     @Override
     public int getEntityId() {
         return -1;
+    }
+
+    public BlockFace getFacing() {
+        return null;
+    }
+
+    @Override
+    public Pose getPose() {
+        return null;
     }
 
     @Override
@@ -189,18 +229,8 @@ public class OfflinePlayer implements Player {
     }
 
     @Override
-    public List<Block> getLineOfSight(HashSet<Byte> hs, int i) {
-        return Collections.emptyList();
-    }
-
-    @Override
     public List<Block> getLineOfSight(Set<Material> mat, int i) {
         return Collections.emptyList();
-    }
-
-    @Override
-    public Block getTargetBlock(HashSet<Byte> hs, int i) {
-        return null;
     }
 
     @Override
@@ -209,13 +239,28 @@ public class OfflinePlayer implements Player {
     }
 
     @Override
-    public List<Block> getLastTwoTargetBlocks(HashSet<Byte> hs, int i) {
+    public List<Block> getLastTwoTargetBlocks(Set<Material> mat, int i) {
         return Collections.emptyList();
     }
 
     @Override
-    public List<Block> getLastTwoTargetBlocks(Set<Material> mat, int i) {
-        return Collections.emptyList();
+    public Block getTargetBlockExact(int maxDistance) {
+        return null;
+    }
+
+    @Override
+    public Block getTargetBlockExact(int maxDistance, FluidCollisionMode fluidCollisionMode) {
+        return null;
+    }
+
+    @Override
+    public RayTraceResult rayTraceBlocks(double maxDistance) {
+        return null;
+    }
+
+    @Override
+    public RayTraceResult rayTraceBlocks(double maxDistance, FluidCollisionMode fluidCollisionMode) {
+        return null;
     }
 
     @Override
@@ -239,6 +284,15 @@ public class OfflinePlayer implements Player {
     @Override
     public Server getServer() {
         return server;
+    }
+
+    @Override
+    public boolean isPersistent() {
+        return false;
+    }
+
+    @Override
+    public void setPersistent(boolean persistent) {
     }
 
     public Vector getMomentum() {
@@ -479,7 +533,8 @@ public class OfflinePlayer implements Player {
     }
 
     @Override
-    public void sendBlockChange(Location lctn, int i, byte b) {
+    public void sendBlockChange(Location loc, BlockData block) {
+
     }
 
     @Override
@@ -652,6 +707,31 @@ public class OfflinePlayer implements Player {
     }
 
     @Override
+    public String getPlayerListHeader() {
+        return null;
+    }
+
+    @Override
+    public String getPlayerListFooter() {
+        return null;
+    }
+
+    @Override
+    public void setPlayerListHeader(String header) {
+
+    }
+
+    @Override
+    public void setPlayerListFooter(String footer) {
+
+    }
+
+    @Override
+    public void setPlayerListHeaderFooter(String header, String footer) {
+
+    }
+
+    @Override
     public String getPlayerListName() {
         return name;
     }
@@ -733,6 +813,21 @@ public class OfflinePlayer implements Player {
     }
 
     @Override
+    public boolean sleep(Location location, boolean force) {
+        return false;
+    }
+
+    @Override
+    public void wakeup(boolean setSpawnLocation) {
+
+    }
+
+    @Override
+    public Location getBedLocation() {
+        return null;
+    }
+
+    @Override
     public void playEffect(EntityEffect ee) {
     }
 
@@ -741,7 +836,17 @@ public class OfflinePlayer implements Player {
     }
 
     @Override
+    public void hidePlayer(Plugin plugin, Player player) {
+
+    }
+
+    @Override
     public void showPlayer(Player player) {
+    }
+
+    @Override
+    public void showPlayer(Plugin plugin, Player player) {
+
     }
 
     @Override
@@ -915,6 +1020,26 @@ public class OfflinePlayer implements Player {
 
     @Override
     public int getExpToLevel() {
+        return 0;
+    }
+
+    @Override
+    public boolean discoverRecipe(NamespacedKey recipe) {
+        return false;
+    }
+
+    @Override
+    public int discoverRecipes(Collection<NamespacedKey> recipes) {
+        return 0;
+    }
+
+    @Override
+    public boolean undiscoverRecipe(NamespacedKey recipe) {
+        return false;
+    }
+
+    @Override
+    public int undiscoverRecipes(Collection<NamespacedKey> recipes) {
         return 0;
     }
 
@@ -1115,41 +1240,6 @@ public class OfflinePlayer implements Player {
     }
 
     @Override
-    public int _INVALID_getLastDamage() {
-        return 0;
-    }
-
-    @Override
-    public void _INVALID_setLastDamage(int i) {
-    }
-
-    @Override
-    public void _INVALID_damage(int i) {
-    }
-
-    @Override
-    public void _INVALID_damage(int i, Entity entity) {
-    }
-
-    @Override
-    public int _INVALID_getHealth() {
-        return 0;
-    }
-
-    @Override
-    public void _INVALID_setHealth(int i) {
-    }
-
-    @Override
-    public int _INVALID_getMaxHealth() {
-        return 0;
-    }
-
-    @Override
-    public void _INVALID_setMaxHealth(int i) {
-    }
-
-    @Override
     public void playSound(Location arg0, String arg1, float arg2, float arg3) {
     }
 
@@ -1229,6 +1319,21 @@ public class OfflinePlayer implements Player {
     }
 
     @Override
+    public boolean isSwimming() {
+        return false;
+    }
+
+    @Override
+    public void setSwimming(boolean swimming) {
+
+    }
+
+    @Override
+    public boolean isRiptiding() {
+        return false;
+    }
+
+    @Override
     public void setAI(boolean b) {
     }
 
@@ -1247,12 +1352,27 @@ public class OfflinePlayer implements Player {
     }
 
     @Override
+    public <T> T getMemory(MemoryKey<T> memoryKey) {
+        return null;
+    }
+
+    @Override
+    public <T> void setMemory(MemoryKey<T> memoryKey, T t) {
+
+    }
+
+    @Override
     public <T extends Projectile> T launchProjectile(Class<? extends T> type, Vector vector) {
         return null;
     }
 
     @Override
     public void sendSignChange(Location arg0, String[] arg1) throws IllegalArgumentException {
+    }
+
+    @Override
+    public void sendSignChange(Location loc, String[] lines, DyeColor dyeColor) throws IllegalArgumentException {
+
     }
 
     @Override
@@ -1293,8 +1413,12 @@ public class OfflinePlayer implements Player {
         return base.isBanned();
     }
 
-    @Override
+    // Removed in 1.12, retain for backwards compatibility.
+    @Deprecated
     public void setBanned(boolean banned) {
+        if (ReflUtil.getNmsVersionObject().isHigherThanOrEqualTo(ReflUtil.V1_12_R1)) {
+            throw new UnsupportedOperationException("Cannot call setBanned on MC 1.12 and higher.");
+        }
         if (base.getName() == null && getName() != null) {
             if (banned) {
                 server.getBanList(BanList.Type.NAME).addBan(getName(), null, null, null);
@@ -1302,7 +1426,13 @@ public class OfflinePlayer implements Player {
                 server.getBanList(BanList.Type.NAME).pardon(getName());
             }
         }
-        base.setBanned(banned);
+        try {
+            Method method = base.getClass().getDeclaredMethod("setBanned", boolean.class);
+            method.invoke(banned);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            // This will never happen in a normal CraftBukkit pre-1.12 instance
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -1423,6 +1553,105 @@ public class OfflinePlayer implements Player {
     public AttributeInstance getAttribute(Attribute attribute) {
         // GetAttribute is nullable as per CraftAttributeMap. This might need to be
         // improved to support cases where dummy null instances should be returned.
+        return null;
+    }
+
+    @Override
+    public void setResourcePack(String s, byte[] bytes) {
+    }
+
+    @Override
+    public AdvancementProgress getAdvancementProgress(Advancement advancement) {
+        return null;
+    }
+
+    @Override
+    public int getClientViewDistance() {
+        return 0;
+    }
+
+    @Override
+    public String getLocale() {
+        return null;
+    }
+
+    @Override
+    public boolean hasCooldown(Material material) {
+        return false;
+    }
+
+    @Override
+    public int getCooldown(Material material) {
+        return 0;
+    }
+
+    @Override
+    public void setCooldown(Material material, int i) {
+    }
+
+    @Override
+    public Entity getShoulderEntityLeft() {
+        return null;
+    }
+
+    @Override
+    public void setShoulderEntityLeft(Entity entity) {
+    }
+
+    @Override
+    public Entity getShoulderEntityRight() {
+        return null;
+    }
+
+    @Override
+    public void setShoulderEntityRight(Entity entity) {
+    }
+
+    @Override
+    public double getHeight() {
+        return 0;
+    }
+
+    @Override
+    public double getWidth() {
+        return 0;
+    }
+
+    @Override
+    public BoundingBox getBoundingBox() {
+        return null;
+    }
+
+    @Override
+    public List<Entity> getPassengers() {
+        return null;
+    }
+
+    @Override
+    public boolean addPassenger(Entity entity) {
+        return false;
+    }
+
+    @Override
+    public boolean removePassenger(Entity entity) {
+        return false;
+    }
+
+    @Override
+    public PistonMoveReaction getPistonMoveReaction() {
+        return null;
+    }
+
+    @Override
+	public void updateCommands() {
+	}
+
+    @Override
+    public void openBook(ItemStack book) {
+    }
+
+    @Override
+    public PersistentDataContainer getPersistentDataContainer() {
         return null;
     }
 }
